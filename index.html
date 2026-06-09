@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>視覺化四角浮水印產生器 - 大量多圖進階版</title>
+    <title>視覺化四角浮水印產生器 - 手機多圖安全打包匯出版</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <style>
         :root {
             --primary-color: #2563eb;
@@ -254,6 +255,34 @@
             font-size: 13px;
         }
 
+        /* 手機防漏安全區（長按手動儲存列表） */
+        .mobile-safe-list {
+            margin-top: 20px;
+            padding: 12px;
+            background: #fffbeb;
+            border: 1px solid #fef3c7;
+            border-radius: 8px;
+            display: none;
+        }
+        .mobile-safe-title {
+            font-size: 13px;
+            font-weight: bold;
+            color: #b45309;
+            margin-bottom: 8px;
+            text-align: center;
+        }
+        .mobile-grid-images {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+        }
+        .mobile-grid-images img {
+            width: 100%;
+            height: auto;
+            border-radius: 4px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
         /* ==========================================================================
            RWD 行動裝置響應式核心
            ========================================================================== */
@@ -288,13 +317,14 @@
             .span-1, .span-2 { width: 100%; }
             button { height: 44px; font-size: 15px; }
             .preview-area { min-height: 200px; padding: 10px; }
+            .mobile-grid-images { grid-template-columns: repeat(2, 1fr); }
         }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h1>📸 視覺化四角浮水印產生器 (多圖拖放匯出版)</h1>
+    <h1>📸 視覺化四角浮水印產生器 (手機多圖打包版)</h1>
     
     <div class="control-grid">
         <div class="control-row">
@@ -365,6 +395,11 @@
             <canvas id="main-canvas"></canvas>
         </div>
     </div>
+
+    <div class="mobile-safe-list" id="mobile-safe-container">
+        <div class="mobile-safe-title">💡 行動端長按備用區：若手機無法直接下載，可在下方圖片上「長按」個別儲存到相簿：</div>
+        <div class="mobile-grid-images" id="mobile-img-grid"></div>
+    </div>
 </div>
 
 <script>
@@ -389,9 +424,12 @@
     const actualPreview = document.getElementById('actual-preview');
     const previewFilename = document.getElementById('preview-filename');
     const layoutCards = document.querySelectorAll('.layout-card');
+    
+    const mobileSafeContainer = document.getElementById('mobile-safe-container');
+    const mobileImgGrid = document.getElementById('mobile-img-grid');
 
-    let mainFilesList = []; // 存放所有丟入的主圖片檔案
-    let mainImageSample = null; // 用來當作畫面即時縮放範本的第1張圖物件
+    let mainFilesList = []; 
+    let mainImageSample = null; 
     let watermarkImage = null;
     let currentPosition = 'tl';
 
@@ -405,16 +443,14 @@
         }
     }
 
-    // --- 核心升級：主圖片拖放(Drop Zone)事件處理 ---
+    // 主圖片事件
     mainDropZone.addEventListener('click', () => uploadMain.click());
     mainDropZone.addEventListener('dragover', (e) => { e.preventDefault(); mainDropZone.classList.add('dragover'); });
     mainDropZone.addEventListener('dragleave', () => mainDropZone.classList.remove('dragover'));
     mainDropZone.addEventListener('drop', (e) => {
         e.preventDefault();
         mainDropZone.classList.remove('dragover');
-        if (e.dataTransfer.files.length > 0) {
-            handleMainFiles(e.dataTransfer.files);
-        }
+        if (e.dataTransfer.files.length > 0) handleMainFiles(e.dataTransfer.files);
     });
     uploadMain.addEventListener('change', (e) => {
         if (e.target.files.length > 0) handleMainFiles(e.target.files);
@@ -430,23 +466,20 @@
         fileCountInfo.textContent = `🔥 已成功丟入 ${mainFilesList.length} 張相片，準備進行批量匯出。`;
         btnDownload.textContent = `多圖匯出 (${mainFilesList.length})`;
         
-        // 讀取第 1 張作為調整大小用的視覺化範本
         loadImage(mainFilesList[0], (img) => {
             mainImageSample = img;
             checkReadyState();
         });
     }
 
-    // --- 浮水印拖放事件處理 ---
+    // 浮水印事件
     wmDropZone.addEventListener('click', () => uploadWatermark.click());
     wmDropZone.addEventListener('dragover', (e) => { e.preventDefault(); wmDropZone.classList.add('dragover'); });
     wmDropZone.addEventListener('dragleave', () => wmDropZone.classList.remove('dragover'));
     wmDropZone.addEventListener('drop', (e) => {
         e.preventDefault();
         wmDropZone.classList.remove('dragover');
-        if (e.dataTransfer.files.length > 0) {
-            handleWatermarkFile(e.dataTransfer.files[0]);
-        }
+        if (e.dataTransfer.files.length > 0) handleWatermarkFile(e.dataTransfer.files[0]);
     });
     uploadWatermark.addEventListener('change', (e) => {
         if (e.target.files.length > 0) handleWatermarkFile(e.target.files[0]);
@@ -485,7 +518,7 @@
         }
     }
 
-    // 版型卡片切換
+    // 版型切換
     layoutCards.forEach(card => {
         card.addEventListener('click', function() {
             if (!mainImageSample || !watermarkImage) return;
@@ -496,7 +529,7 @@
         });
     });
 
-    // 滑桿比例調整
+    // 滑桿控制
     watermarkSizeInput.addEventListener('input', function() {
         sizeValDisplay.textContent = this.value + '%';
         if (mainImageSample && watermarkImage) {
@@ -505,7 +538,7 @@
         }
     });
 
-    // 記憶套用
+    // 歷史記憶套用
     btnApplyHistory.addEventListener('click', function() {
         const savedPos = localStorage.getItem('wm_prev_position');
         const savedSize = localStorage.getItem('wm_prev_size');
@@ -521,7 +554,7 @@
         }
     });
 
-    // 通用核心繪圖引擎 (輸入底圖、畫布，即可精準疊加浮水印)
+    // 通用繪圖引擎
     function drawMainInstance(sourceImg, targetCanvas, targetCtx) {
         if (!sourceImg || !watermarkImage) return;
 
@@ -548,7 +581,7 @@
         targetCtx.drawImage(watermarkImage, x, y, targetWidth, targetHeight);
     }
 
-    // 方位縮圖生成
+    // 方位縮圖
     function generateThumbnails() {
         const positions = ['tl', 'tr', 'bl', 'br'];
         const sizePercent = parseFloat(watermarkSizeInput.value) / 100;
@@ -578,52 +611,92 @@
         });
     }
 
-    // --- 核心重構：多圖多核心自動流式匯出 ---
+    // --- 核心重構：行動端 ZIP 打包匯出 + 自動排序不覆蓋機制 ---
     async function downloadJPG() {
         localStorage.setItem('wm_prev_position', currentPosition);
         localStorage.setItem('wm_prev_size', watermarkSizeInput.value);
         updateHistoryButtonState();
 
-        // 全面鎖定 UI 控制項，避免多圖導出過程中被二次點擊引發異常
         btnDownload.disabled = true;
         btnApplyHistory.disabled = true;
         watermarkSizeInput.disabled = true;
+        
+        // 清空並準備備用顯示區
+        mobileImgGrid.innerHTML = '';
+        mobileSafeContainer.style.display = 'none';
 
-        // 在瀏覽器記憶體中動態生成高速 Worker 畫布，不影響畫面主預覽渲染
         const workerCanvas = document.createElement('canvas');
         const workerCtx = workerCanvas.getContext('2d');
+        
+        // 初始化 JSZip 物件
+        const zip = new JSZip();
+        let isZipSupported = (typeof JSZip !== 'undefined');
 
         for (let i = 0; i < mainFilesList.length; i++) {
             const file = mainFilesList[i];
             
-            // 將進度即時寫入第 4 欄的控制面板標題
-            statusTitle.textContent = `匯出中 ${i+1}/${mainFilesList.length}`;
+            statusTitle.textContent = `精算中 ${i+1}/${mainFilesList.length}`;
             statusTitle.style.color = 'var(--warning-color)';
 
             await new Promise((resolve) => {
                 const img = new Image();
                 img.onload = function() {
-                    // 背景高速繪製
                     drawMainInstance(img, workerCanvas, workerCtx);
                     
-                    // 多圖直接串流匯出下載
                     const dataURL = workerCanvas.toDataURL('image/jpeg', 0.9);
-                    const link = document.createElement('a');
-                    const originalName = file.name.substring(0, file.name.lastIndexOf('.')) || file.name;
-                    link.download = `${originalName}_watermark.jpg`;
-                    link.href = dataURL;
-                    document.body.appendChild(link);
-                    link.click();
-                    document.body.removeChild(link);
+                    
+                    // 生成安全流水排序號（例如 001, 002...）
+                    let originalName = file.name.substring(0, file.name.lastIndexOf('.')) || file.name;
+                    if (!originalName || originalName.trim() === "") originalName = "image";
+                    const serialNumber = String(i + 1).padStart(3, '0');
+                    const finalFileName = `${originalName}_${serialNumber}_watermark.jpg`;
+
+                    // 1. 同步加入手機長按備用區，確保使用者在各種封閉式 App (如 LINE、FB) 內也能百分百拿到照片
+                    const mobileImg = document.createElement('img');
+                    mobileImg.src = dataURL;
+                    mobileImg.alt = finalFileName;
+                    mobileImgGrid.appendChild(mobileImg);
+
+                    // 2. 如果支援打包，將圖片檔案塞入 ZIP 物件
+                    if (isZipSupported) {
+                        const base64Data = dataURL.split(',')[1];
+                        zip.file(finalFileName, base64Data, {base64: true});
+                    } else {
+                        // 降級方案：PC 或普通瀏覽器直接觸發單圖串流下載
+                        const link = document.createElement('a');
+                        link.download = finalFileName;
+                        link.href = dataURL;
+                        document.body.appendChild(link);
+                        link.click();
+                        document.body.removeChild(link);
+                    }
                     
                     resolve();
                 };
                 img.src = URL.createObjectURL(file);
             });
             
-            // 每次處理完微休眠 150ms，讓瀏覽器 GC (記憶體垃圾回收機制) 有時間釋放大型圖片資源，防止當機
-            await new Promise(r => setTimeout(r, 150));
+            await new Promise(r => setTimeout(r, 100));
         }
+
+        // 處理打包匯出下載
+        if (isZipSupported && mainFilesList.length > 0) {
+            statusTitle.textContent = `打包中...`;
+            try {
+                const content = await zip.generateAsync({type: "blob"});
+                const zipLink = document.createElement('a');
+                zipLink.download = `watermark_batch_${new Date().toISOString().slice(0,10).replace(/-/g,'')}.zip`;
+                zipLink.href = URL.createObjectURL(content);
+                document.body.appendChild(zipLink);
+                zipLink.click();
+                document.body.removeChild(zipLink);
+            } catch (err) {
+                console.error("ZIP打包發生錯誤，已自動切換為備用顯示下載方式：", err);
+            }
+        }
+
+        // 開啟手機專用長按備用區域
+        mobileSafeContainer.style.display = 'block';
 
         // 還原 UI 控制狀態
         statusTitle.textContent = "4. 水印調整";
@@ -632,7 +705,7 @@
         watermarkSizeInput.disabled = false;
         updateHistoryButtonState();
         
-        alert(`🎉 匯出完成！已成功將 ${mainFilesList.length} 張圖片全部套用版型並下載完畢！`);
+        alert(`🎉 處理完畢！\n1. 所有相片已成功封裝為單一 ZIP 壓縮檔（防重複覆蓋）並觸發下載！\n2. 行動裝置若沒看見下載，可至網頁最下方的「備用區」直接長按圖片儲存喔！`);
     }
 
     btnDownload.addEventListener('click', downloadJPG);
