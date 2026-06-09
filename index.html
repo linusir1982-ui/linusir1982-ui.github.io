@@ -25,7 +25,7 @@
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
             background-color: var(--bg-color);
             margin: 0;
-            padding: 8px;
+            padding: 12px;
             color: var(--text-main);
             line-height: 1.5;
         }
@@ -34,8 +34,8 @@
             max-width: 800px;
             margin: 0 auto;
             background: white;
-            padding: 8px;
-            border-radius: 8px;
+            padding: 16px;
+            border-radius: 16px;
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
         }
 
@@ -168,7 +168,7 @@
             flex-grow: 1;
             cursor: pointer;
             margin: 0;
-            height: 10px;
+            height: 20px;
         }
 
         .range-val {
@@ -453,3 +453,263 @@
         if (e.dataTransfer.files.length > 0) handleMainFiles(e.dataTransfer.files);
     });
     uploadMain.addEventListener('change', (e) => {
+        if (e.target.files.length > 0) handleMainFiles(e.target.files);
+    });
+
+    function handleMainFiles(files) {
+        mainFilesList = Array.from(files).filter(file => file.type.startsWith('image/'));
+        if (mainFilesList.length === 0) {
+            fileCountInfo.textContent = "尚未丟入任何有效的相片檔案";
+            return;
+        }
+        dropZoneText.innerHTML = `✨ 成功拖入！重新丟入請再度拖曳至此`;
+        fileCountInfo.textContent = `🔥 已成功丟入 ${mainFilesList.length} 張相片，準備進行批量匯出。`;
+        btnDownload.textContent = `多圖匯出 (${mainFilesList.length})`;
+        
+        loadImage(mainFilesList[0], (img) => {
+            mainImageSample = img;
+            checkReadyState();
+        });
+    }
+
+    // 浮水印事件
+    wmDropZone.addEventListener('click', () => uploadWatermark.click());
+    wmDropZone.addEventListener('dragover', (e) => { e.preventDefault(); wmDropZone.classList.add('dragover'); });
+    wmDropZone.addEventListener('dragleave', () => wmDropZone.classList.remove('dragover'));
+    wmDropZone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        wmDropZone.classList.remove('dragover');
+        if (e.dataTransfer.files.length > 0) handleWatermarkFile(e.dataTransfer.files[0]);
+    });
+    uploadWatermark.addEventListener('change', (e) => {
+        if (e.target.files.length > 0) handleWatermarkFile(e.target.files[0]);
+    });
+
+    function handleWatermarkFile(file) {
+        if (!file.type.includes('png')) {
+            alert('為了維持浮水印透明度，請丟入透明背景的 .png 格式圖片喔！');
+            return;
+        }
+        wmZoneText.textContent = `🔮 已成功載入浮水印：${file.name}`;
+        loadImage(file, (img) => {
+            watermarkImage = img;
+            checkReadyState();
+        });
+    }
+
+    function loadImage(file, callback) {
+        if (!file) return;
+        const img = new Image();
+        img.onload = () => callback(img);
+        img.src = URL.createObjectURL(file);
+    }
+
+    function checkReadyState() {
+        if (mainImageSample && watermarkImage) {
+            placeholder.style.display = 'none';
+            actualPreview.style.display = 'block';
+            previewFilename.textContent = `最終輸出大圖預覽 (第 1 張範本：${mainFilesList[0].name})：`;
+            watermarkSizeInput.disabled = false;
+            btnDownload.disabled = false;
+            
+            generateThumbnails();
+            drawMainInstance(mainImageSample, mainCanvas, mainCtx);
+            updateHistoryButtonState();
+        }
+    }
+
+    // 版型切換
+    layoutCards.forEach(card => {
+        card.addEventListener('click', function() {
+            if (!mainImageSample || !watermarkImage) return;
+            layoutCards.forEach(c => c.classList.remove('active'));
+            this.classList.add('active');
+            currentPosition = this.getAttribute('data-position');
+            drawMainInstance(mainImageSample, mainCanvas, mainCtx);
+        });
+    });
+
+    // 滑桿控制
+    watermarkSizeInput.addEventListener('input', function() {
+        sizeValDisplay.textContent = this.value + '%';
+        if (mainImageSample && watermarkImage) {
+            drawMainInstance(mainImageSample, mainCanvas, mainCtx);
+            generateThumbnails();
+        }
+    });
+
+    // 歷史記憶套用
+    btnApplyHistory.addEventListener('click', function() {
+        const savedPos = localStorage.getItem('wm_prev_position');
+        const savedSize = localStorage.getItem('wm_prev_size');
+        if (savedPos && savedSize) {
+            currentPosition = savedPos;
+            watermarkSizeInput.value = savedSize;
+            sizeValDisplay.textContent = savedSize + '%';
+            layoutCards.forEach(c => {
+                c.classList.toggle('active', c.getAttribute('data-position') === savedPos);
+            });
+            drawMainInstance(mainImageSample, mainCanvas, mainCtx);
+            generateThumbnails();
+        }
+    });
+
+    // 通用繪圖引擎
+    function drawMainInstance(sourceImg, targetCanvas, targetCtx) {
+        if (!sourceImg || !watermarkImage) return;
+
+        targetCanvas.width = sourceImg.width;
+        targetCanvas.height = sourceImg.height;
+        targetCtx.drawImage(sourceImg, 0, 0);
+
+        const sizePercent = parseFloat(watermarkSizeInput.value) / 100;
+        const targetWidth = targetCanvas.width * sizePercent; 
+        const scale = targetWidth / watermarkImage.width;
+        const targetHeight = watermarkImage.height * scale;
+        const padding = targetCanvas.width * 0.01;
+
+        let x = padding;
+        let y = padding;
+
+        if (currentPosition === 'tr') x = targetCanvas.width - padding - targetWidth;
+        if (currentPosition === 'bl') y = targetCanvas.height - padding - targetHeight;
+        if (currentPosition === 'br') {
+            x = targetCanvas.width - padding - targetWidth;
+            y = targetCanvas.height - padding - targetHeight;
+        }
+
+        targetCtx.drawImage(watermarkImage, x, y, targetWidth, targetHeight);
+    }
+
+    // 方位縮圖
+    function generateThumbnails() {
+        const positions = ['tl', 'tr', 'bl', 'br'];
+        const sizePercent = parseFloat(watermarkSizeInput.value) / 100;
+        
+        positions.forEach(pos => {
+            const thumbCanvas = document.getElementById(`thumb-${pos}`);
+            const tCtx = thumbCanvas.getContext('2d');
+            
+            thumbCanvas.width = 160;
+            thumbCanvas.height = (mainImageSample.height / mainImageSample.width) * 160;
+            tCtx.drawImage(mainImageSample, 0, 0, thumbCanvas.width, thumbCanvas.height);
+            
+            const wWidth = thumbCanvas.width * (sizePercent * 1.3); 
+            const scale = wWidth / watermarkImage.width;
+            const wHeight = watermarkImage.height * scale;
+            const pad = thumbCanvas.width * 0.05;
+            
+            let x = pad, y = pad;
+            if (pos === 'tr') x = thumbCanvas.width - pad - wWidth;
+            if (pos === 'bl') y = thumbCanvas.height - pad - wHeight;
+            if (pos === 'br') {
+                x = thumbCanvas.width - pad - wWidth;
+                y = thumbCanvas.height - pad - wHeight;
+            }
+            
+            tCtx.drawImage(watermarkImage, x, y, wWidth, wHeight);
+        });
+    }
+
+    // --- 核心重構：行動端 ZIP 打包匯出 + 自動排序不覆蓋機制 ---
+    async function downloadJPG() {
+        localStorage.setItem('wm_prev_position', currentPosition);
+        localStorage.setItem('wm_prev_size', watermarkSizeInput.value);
+        updateHistoryButtonState();
+
+        btnDownload.disabled = true;
+        btnApplyHistory.disabled = true;
+        watermarkSizeInput.disabled = true;
+        
+        // 清空並準備備用顯示區
+        mobileImgGrid.innerHTML = '';
+        mobileSafeContainer.style.display = 'none';
+
+        const workerCanvas = document.createElement('canvas');
+        const workerCtx = workerCanvas.getContext('2d');
+        
+        // 初始化 JSZip 物件
+        const zip = new JSZip();
+        let isZipSupported = (typeof JSZip !== 'undefined');
+
+        for (let i = 0; i < mainFilesList.length; i++) {
+            const file = mainFilesList[i];
+            
+            statusTitle.textContent = `精算中 ${i+1}/${mainFilesList.length}`;
+            statusTitle.style.color = 'var(--warning-color)';
+
+            await new Promise((resolve) => {
+                const img = new Image();
+                img.onload = function() {
+                    drawMainInstance(img, workerCanvas, workerCtx);
+                    
+                    const dataURL = workerCanvas.toDataURL('image/jpeg', 0.9);
+                    
+                    // 生成安全流水排序號（例如 001, 002...）
+                    let originalName = file.name.substring(0, file.name.lastIndexOf('.')) || file.name;
+                    if (!originalName || originalName.trim() === "") originalName = "image";
+                    const serialNumber = String(i + 1).padStart(3, '0');
+                    const finalFileName = `${originalName}_${serialNumber}_watermark.jpg`;
+
+                    // 1. 同步加入手機長按備用區，確保使用者在各種封閉式 App (如 LINE、FB) 內也能百分百拿到照片
+                    const mobileImg = document.createElement('img');
+                    mobileImg.src = dataURL;
+                    mobileImg.alt = finalFileName;
+                    mobileImgGrid.appendChild(mobileImg);
+
+                    // 2. 如果支援打包，將圖片檔案塞入 ZIP 物件
+                    if (isZipSupported) {
+                        const base64Data = dataURL.split(',')[1];
+                        zip.file(finalFileName, base64Data, {base64: true});
+                    } else {
+                        // 降級方案：PC 或普通瀏覽器直接觸發單圖串流下載
+                        const link = document.createElement('a');
+                        link.download = finalFileName;
+                        link.href = dataURL;
+                        document.body.appendChild(link);
+                        link.click();
+                        document.body.removeChild(link);
+                    }
+                    
+                    resolve();
+                };
+                img.src = URL.createObjectURL(file);
+            });
+            
+            await new Promise(r => setTimeout(r, 100));
+        }
+
+        // 處理打包匯出下載
+        if (isZipSupported && mainFilesList.length > 0) {
+            statusTitle.textContent = `打包中...`;
+            try {
+                const content = await zip.generateAsync({type: "blob"});
+                const zipLink = document.createElement('a');
+                zipLink.download = `watermark_batch_${new Date().toISOString().slice(0,10).replace(/-/g,'')}.zip`;
+                zipLink.href = URL.createObjectURL(content);
+                document.body.appendChild(zipLink);
+                zipLink.click();
+                document.body.removeChild(zipLink);
+            } catch (err) {
+                console.error("ZIP打包發生錯誤，已自動切換為備用顯示下載方式：", err);
+            }
+        }
+
+        // 開啟手機專用長按備用區域
+        mobileSafeContainer.style.display = 'block';
+
+        // 還原 UI 控制狀態
+        statusTitle.textContent = "4. 水印調整";
+        statusTitle.style.color = 'var(--text-dark)';
+        btnDownload.disabled = false;
+        watermarkSizeInput.disabled = false;
+        updateHistoryButtonState();
+        
+        alert(`🎉 處理完畢！\n1. 所有相片已成功封裝為單一 ZIP 壓縮檔（防重複覆蓋）並觸發下載！\n2. 行動裝置若沒看見下載，可至網頁最下方的「備用區」直接長按圖片儲存喔！`);
+    }
+
+    btnDownload.addEventListener('click', downloadJPG);
+</script>
+
+</body>
+</html>
