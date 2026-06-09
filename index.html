@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>視覺化四角浮水印產生器 - 手機多圖安全打包匯出版</title>
+    <title>視覺化四角浮水印選擇產生器 - 手機多圖安全打包匯出版</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <style>
         :root {
@@ -324,7 +324,7 @@
 <body>
 
 <div class="container">
-    <h1>📸 視覺化四角浮水印產生器 (手機多圖打包版)</h1>
+    <h1>📸 視覺化四角浮水印選擇產生器 (手機多圖打包版)</h1>
     
     <div class="control-grid">
         <div class="control-row">
@@ -339,7 +339,7 @@
         </div>
 
         <div class="control-row">
-            <div class="label-title">2. 選擇版型</div>
+            <div class="label-title">2. 選擇水印位置</div>
             <div class="layout-options-wrapper">
                 <div class="layout-card active" data-position="tl" id="card-tl">
                     <canvas id="thumb-tl"></canvas>
@@ -371,7 +371,7 @@
         </div>
 
         <div class="control-row">
-            <div class="label-title" id="status-title">4. 水印調整</div>
+            <div class="label-title" id="status-title">4. 水印比例調整</div>
             <div class="range-container">
                 <input type="range" id="watermark-size" min="3" max="30" value="8" step="1" disabled>
                 <span class="range-val" id="size-val">8%</span>
@@ -699,7 +699,7 @@
         mobileSafeContainer.style.display = 'block';
 
         // 還原 UI 控制狀態
-        statusTitle.textContent = "4. 水印調整";
+        statusTitle.textContent = "4. 水印比例調整";
         statusTitle.style.color = 'var(--text-dark)';
         btnDownload.disabled = false;
         watermarkSizeInput.disabled = false;
