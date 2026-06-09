@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>視覺化四角浮水印產生器 - 記憶套用版</title>
+    <title>視覺化四角浮水印產生器 - 大量多圖進階版</title>
     <style>
         :root {
             --primary-color: #2563eb;
@@ -74,12 +74,36 @@
 
         .input-field {
             grid-column: span 4;
+            position: relative;
         }
 
         .span-1 { grid-column: span 1; }
         .span-2 { grid-column: span 2; }
 
-        /* 橫排 2：版型可視化區域 (大螢幕佔 4 直行) */
+        /* 增強型拖放上傳區域樣式 */
+        .drop-zone {
+            border: 2px dashed var(--border-color);
+            background: white;
+            padding: 12px;
+            border-radius: 6px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        .drop-zone.dragover {
+            border-color: var(--primary-color);
+            background-color: #eff6ff;
+        }
+        .drop-zone input[type="file"] {
+            display: none;
+        }
+        .drop-zone p {
+            margin: 0;
+            font-size: 13px;
+            color: #64748b;
+        }
+
+        /* 橫排 2：版型可視化區域 */
         .layout-options-wrapper {
             grid-column: span 4;
             display: grid;
@@ -98,9 +122,7 @@
             user-select: none;
         }
 
-        .layout-card:active {
-            transform: scale(0.98);
-        }
+        .layout-card:active { transform: scale(0.98); }
 
         .layout-card.active {
             border-color: var(--primary-color);
@@ -126,11 +148,9 @@
             overflow: hidden;
         }
 
-        .layout-card.active span {
-            color: var(--primary-color);
-        }
+        .layout-card.active span { color: var(--primary-color); }
 
-        /* 橫排 4：滑桿容器 (大螢幕佔 2 直行) */
+        /* 橫排 4：滑桿容器 */
         .range-container {
             grid-column: span 2;
             display: flex;
@@ -158,8 +178,8 @@
             text-align: right;
         }
 
-        /* 表單元件基本樣式 */
-        input[type="file"], button {
+        /* 按鈕樣式調優 */
+        button {
             width: 100%;
             height: 40px;
             padding: 8px 12px;
@@ -168,15 +188,6 @@
             box-sizing: border-box;
             font-size: 14px;
             background: white;
-        }
-
-        input[type="file"] {
-            padding: 6px 10px;
-            font-size: 13px;
-        }
-
-        button {
-            background-color: var(--primary-color);
             color: white;
             font-weight: 600;
             border: none;
@@ -188,9 +199,7 @@
             transition: background 0.2s, transform 0.1s;
         }
 
-        button:active {
-            transform: scale(0.98);
-        }
+        button:active { transform: scale(0.98); }
 
         button:disabled {
             background-color: #cbd5e1;
@@ -199,7 +208,15 @@
             transform: none;
         }
 
-        /* 大圖預覽區域 */
+        .batch-info {
+            font-size: 11px;
+            color: #64748b;
+            margin-top: 4px;
+            font-weight: 500;
+            text-align: left;
+        }
+
+        /* 預覽區域 */
         .preview-area {
             text-align: center;
             margin-top: 16px;
@@ -217,7 +234,7 @@
         #main-canvas {
             max-width: 100%;
             height: auto;
-            max-height: 65vh;
+            max-height: 55vh;
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
             background: white;
             border-radius: 4px;
@@ -259,7 +276,6 @@
             .label-title { font-size: 13px; color: #475569; }
             .input-field { width: 100%; }
 
-            /* 手機版四格版型改為 2x2 雙列網格 */
             .layout-options-wrapper {
                 width: 100%;
                 grid-template-columns: repeat(2, 1fr);
@@ -268,7 +284,6 @@
             .layout-card { padding: 8px; }
             .layout-card span { font-size: 12px; }
 
-            /* 手機版滑桿與所有按鈕在排版上皆撐滿 100% 寬度 */
             .range-container { width: 100%; }
             .span-1, .span-2 { width: 100%; }
             button { height: 44px; font-size: 15px; }
@@ -279,13 +294,17 @@
 <body>
 
 <div class="container">
-    <h1>📸 視覺化四角浮水印產生器</h1>
+    <h1>📸 視覺化四角浮水印產生器 (多圖拖放匯出版)</h1>
     
     <div class="control-grid">
         <div class="control-row">
-            <div class="label-title">1. 主圖片</div>
+            <div class="label-title">1. 多圖丟入</div>
             <div class="input-field span-4">
-                <input type="file" id="upload-main" accept="image/*">
+                <div class="drop-zone" id="main-drop-zone">
+                    <p id="drop-zone-text">📂 點擊選取 或 將多張主圖片拖曳丟入此處</p>
+                    <input type="file" id="upload-main" accept="image/*" multiple>
+                </div>
+                <div id="file-count-info" class="batch-info">尚未丟入任何相片</div>
             </div>
         </div>
 
@@ -314,32 +333,35 @@
         <div class="control-row">
             <div class="label-title">3. PNG水印</div>
             <div class="input-field span-4">
-                <input type="file" id="upload-watermark" accept="image/png">
+                <div class="drop-zone" id="wm-drop-zone">
+                    <p id="wm-zone-text">🔮 點擊選取 或 將單張 PNG 浮水印拖曳丟入</p>
+                    <input type="file" id="upload-watermark" accept="image/png">
+                </div>
             </div>
         </div>
 
         <div class="control-row">
-            <div class="label-title">4. 水印調整</div>
+            <div class="label-title" id="status-title">4. 水印調整</div>
             <div class="range-container">
                 <input type="range" id="watermark-size" min="3" max="30" value="8" step="1" disabled>
                 <span class="range-val" id="size-val">8%</span>
             </div>
             <div class="span-1">
-                <button id="btn-apply-history" style="background-color: var(--warning-color);" disabled title="套用上一次成功下載時的設定">
+                <button id="btn-apply-history" style="background-color: var(--warning-color);" disabled>
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><polyline points="3 3 3 8 8 8"></polyline><line x1="12" y1="7" x2="12" y2="12"></line><line x1="12" y1="12" x2="16" y2="14"></line></svg>
                     套用先前
                 </button>
             </div>
             <div class="span-1">
-                <button id="btn-download" style="background-color: var(--success-color);" disabled>下載 JPG</button>
+                <button id="btn-download" style="background-color: var(--success-color);" disabled>多圖匯出</button>
             </div>
         </div>
     </div>
 
     <div class="preview-area">
-        <p id="preview-placeholder" class="preview-placeholder-text">請上傳「主圖片」與「PNG浮水印」，系統將自動生成手機優化預覽圖</p>
+        <p id="preview-placeholder" class="preview-placeholder-text">請將多張「主圖片」與「PNG浮水印」丟入上方，系統將自動生成多圖匯出預覽。</p>
         <div id="actual-preview" style="display: none; width: 100%;">
-            <div class="preview-title">最終輸出大圖預覽：</div>
+            <div class="preview-title" id="preview-filename">最終輸出大圖預覽 (第 1 張範本)：</div>
             <canvas id="main-canvas"></canvas>
         </div>
     </div>
@@ -347,48 +369,100 @@
 
 <script>
     const uploadMain = document.getElementById('upload-main');
+    const mainDropZone = document.getElementById('main-drop-zone');
+    const dropZoneText = document.getElementById('drop-zone-text');
+    
     const uploadWatermark = document.getElementById('upload-watermark');
+    const wmDropZone = document.getElementById('wm-drop-zone');
+    const wmZoneText = document.getElementById('wm-zone-text');
+
+    const fileCountInfo = document.getElementById('file-count-info');
     const watermarkSizeInput = document.getElementById('watermark-size');
     const sizeValDisplay = document.getElementById('size-val');
     const btnApplyHistory = document.getElementById('btn-apply-history');
     const btnDownload = document.getElementById('btn-download');
+    const statusTitle = document.getElementById('status-title');
+    
     const mainCanvas = document.getElementById('main-canvas');
     const mainCtx = mainCanvas.getContext('2d');
     const placeholder = document.getElementById('preview-placeholder');
     const actualPreview = document.getElementById('actual-preview');
+    const previewFilename = document.getElementById('preview-filename');
     const layoutCards = document.querySelectorAll('.layout-card');
 
-    let mainImage = null;
+    let mainFilesList = []; // 存放所有丟入的主圖片檔案
+    let mainImageSample = null; // 用來當作畫面即時縮放範本的第1張圖物件
     let watermarkImage = null;
     let currentPosition = 'tl';
 
-    // 檢查是否有歷史紀錄並決定是否啟用「套用先前」按鈕
     function updateHistoryButtonState() {
         const savedPos = localStorage.getItem('wm_prev_position');
         const savedSize = localStorage.getItem('wm_prev_size');
-        // 必須同時有圖片載入且有歷史快照，才允許點擊
-        if (mainImage && watermarkImage && savedPos && savedSize) {
+        if (mainFilesList.length > 0 && watermarkImage && savedPos && savedSize) {
             btnApplyHistory.disabled = false;
         } else {
             btnApplyHistory.disabled = true;
         }
     }
 
-    uploadMain.addEventListener('change', function(e) {
-        if (e.target.files.length === 0) return;
-        loadImage(e.target.files[0], (img) => {
-            mainImage = img;
-            checkReadyState();
-        });
+    // --- 核心升級：主圖片拖放(Drop Zone)事件處理 ---
+    mainDropZone.addEventListener('click', () => uploadMain.click());
+    mainDropZone.addEventListener('dragover', (e) => { e.preventDefault(); mainDropZone.classList.add('dragover'); });
+    mainDropZone.addEventListener('dragleave', () => mainDropZone.classList.remove('dragover'));
+    mainDropZone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        mainDropZone.classList.remove('dragover');
+        if (e.dataTransfer.files.length > 0) {
+            handleMainFiles(e.dataTransfer.files);
+        }
+    });
+    uploadMain.addEventListener('change', (e) => {
+        if (e.target.files.length > 0) handleMainFiles(e.target.files);
     });
 
-    uploadWatermark.addEventListener('change', function(e) {
-        if (e.target.files.length === 0) return;
-        loadImage(e.target.files[0], (img) => {
+    function handleMainFiles(files) {
+        mainFilesList = Array.from(files).filter(file => file.type.startsWith('image/'));
+        if (mainFilesList.length === 0) {
+            fileCountInfo.textContent = "尚未丟入任何有效的相片檔案";
+            return;
+        }
+        dropZoneText.innerHTML = `✨ 成功拖入！重新丟入請再度拖曳至此`;
+        fileCountInfo.textContent = `🔥 已成功丟入 ${mainFilesList.length} 張相片，準備進行批量匯出。`;
+        btnDownload.textContent = `多圖匯出 (${mainFilesList.length})`;
+        
+        // 讀取第 1 張作為調整大小用的視覺化範本
+        loadImage(mainFilesList[0], (img) => {
+            mainImageSample = img;
+            checkReadyState();
+        });
+    }
+
+    // --- 浮水印拖放事件處理 ---
+    wmDropZone.addEventListener('click', () => uploadWatermark.click());
+    wmDropZone.addEventListener('dragover', (e) => { e.preventDefault(); wmDropZone.classList.add('dragover'); });
+    wmDropZone.addEventListener('dragleave', () => wmDropZone.classList.remove('dragover'));
+    wmDropZone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        wmDropZone.classList.remove('dragover');
+        if (e.dataTransfer.files.length > 0) {
+            handleWatermarkFile(e.dataTransfer.files[0]);
+        }
+    });
+    uploadWatermark.addEventListener('change', (e) => {
+        if (e.target.files.length > 0) handleWatermarkFile(e.target.files[0]);
+    });
+
+    function handleWatermarkFile(file) {
+        if (!file.type.includes('png')) {
+            alert('為了維持浮水印透明度，請丟入透明背景的 .png 格式圖片喔！');
+            return;
+        }
+        wmZoneText.textContent = `🔮 已成功載入浮水印：${file.name}`;
+        loadImage(file, (img) => {
             watermarkImage = img;
             checkReadyState();
         });
-    });
+    }
 
     function loadImage(file, callback) {
         if (!file) return;
@@ -398,66 +472,83 @@
     }
 
     function checkReadyState() {
-        if (mainImage && watermarkImage) {
+        if (mainImageSample && watermarkImage) {
             placeholder.style.display = 'none';
             actualPreview.style.display = 'block';
+            previewFilename.textContent = `最終輸出大圖預覽 (第 1 張範本：${mainFilesList[0].name})：`;
             watermarkSizeInput.disabled = false;
             btnDownload.disabled = false;
             
             generateThumbnails();
-            drawMain();
+            drawMainInstance(mainImageSample, mainCanvas, mainCtx);
             updateHistoryButtonState();
         }
     }
 
-    // 方位卡片點擊切換
+    // 版型卡片切換
     layoutCards.forEach(card => {
         card.addEventListener('click', function() {
-            if (!mainImage || !watermarkImage) return;
+            if (!mainImageSample || !watermarkImage) return;
             layoutCards.forEach(c => c.classList.remove('active'));
             this.classList.add('active');
             currentPosition = this.getAttribute('data-position');
-            drawMain();
+            drawMainInstance(mainImageSample, mainCanvas, mainCtx);
         });
     });
 
-    // 滑桿移動即時重繪
+    // 滑桿比例調整
     watermarkSizeInput.addEventListener('input', function() {
         sizeValDisplay.textContent = this.value + '%';
-        if (mainImage && watermarkImage) {
-            drawMain();
+        if (mainImageSample && watermarkImage) {
+            drawMainInstance(mainImageSample, mainCanvas, mainCtx);
             generateThumbnails();
         }
     });
 
-    // 歷史紀錄核心邏輯：「套用先前」按鈕監聽
+    // 記憶套用
     btnApplyHistory.addEventListener('click', function() {
         const savedPos = localStorage.getItem('wm_prev_position');
         const savedSize = localStorage.getItem('wm_prev_size');
-        
         if (savedPos && savedSize) {
             currentPosition = savedPos;
             watermarkSizeInput.value = savedSize;
             sizeValDisplay.textContent = savedSize + '%';
-            
-            // 更新 UI 卡片亮起對應位置
             layoutCards.forEach(c => {
-                if(c.getAttribute('data-position') === savedPos) {
-                    c.classList.add('active');
-                } else {
-                    c.classList.remove('active');
-                }
+                c.classList.toggle('active', c.getAttribute('data-position') === savedPos);
             });
-            
-            // 全域重製繪製
-            drawMain();
+            drawMainInstance(mainImageSample, mainCanvas, mainCtx);
             generateThumbnails();
         }
     });
 
-    btnDownload.addEventListener('click', downloadJPG);
+    // 通用核心繪圖引擎 (輸入底圖、畫布，即可精準疊加浮水印)
+    function drawMainInstance(sourceImg, targetCanvas, targetCtx) {
+        if (!sourceImg || !watermarkImage) return;
 
-    // 生成四方位預覽圖
+        targetCanvas.width = sourceImg.width;
+        targetCanvas.height = sourceImg.height;
+        targetCtx.drawImage(sourceImg, 0, 0);
+
+        const sizePercent = parseFloat(watermarkSizeInput.value) / 100;
+        const targetWidth = targetCanvas.width * sizePercent; 
+        const scale = targetWidth / watermarkImage.width;
+        const targetHeight = watermarkImage.height * scale;
+        const padding = targetCanvas.width * 0.03;
+
+        let x = padding;
+        let y = padding;
+
+        if (currentPosition === 'tr') x = targetCanvas.width - padding - targetWidth;
+        if (currentPosition === 'bl') y = targetCanvas.height - padding - targetHeight;
+        if (currentPosition === 'br') {
+            x = targetCanvas.width - padding - targetWidth;
+            y = targetCanvas.height - padding - targetHeight;
+        }
+
+        targetCtx.drawImage(watermarkImage, x, y, targetWidth, targetHeight);
+    }
+
+    // 方位縮圖生成
     function generateThumbnails() {
         const positions = ['tl', 'tr', 'bl', 'br'];
         const sizePercent = parseFloat(watermarkSizeInput.value) / 100;
@@ -467,8 +558,8 @@
             const tCtx = thumbCanvas.getContext('2d');
             
             thumbCanvas.width = 160;
-            thumbCanvas.height = (mainImage.height / mainImage.width) * 160;
-            tCtx.drawImage(mainImage, 0, 0, thumbCanvas.width, thumbCanvas.height);
+            thumbCanvas.height = (mainImageSample.height / mainImageSample.width) * 160;
+            tCtx.drawImage(mainImageSample, 0, 0, thumbCanvas.width, thumbCanvas.height);
             
             const wWidth = thumbCanvas.width * (sizePercent * 1.3); 
             const scale = wWidth / watermarkImage.width;
@@ -487,50 +578,64 @@
         });
     }
 
-    // 繪製輸出大圖
-    function drawMain() {
-        if (!mainImage || !watermarkImage) return;
-
-        mainCanvas.width = mainImage.width;
-        mainCanvas.height = mainImage.height;
-        mainCtx.drawImage(mainImage, 0, 0);
-
-        const sizePercent = parseFloat(watermarkSizeInput.value) / 100;
-        const targetWidth = mainCanvas.width * sizePercent; 
-        const scale = targetWidth / watermarkImage.width;
-        const targetHeight = watermarkImage.height * scale;
-        const padding = mainCanvas.width * 0.03;
-
-        let x = padding;
-        let y = padding;
-
-        if (currentPosition === 'tr') x = mainCanvas.width - padding - targetWidth;
-        if (currentPosition === 'bl') y = mainCanvas.height - padding - targetHeight;
-        if (currentPosition === 'br') {
-            x = mainCanvas.width - padding - targetWidth;
-            y = mainCanvas.height - padding - targetHeight;
-        }
-
-        mainCtx.drawImage(watermarkImage, x, y, targetWidth, targetHeight);
-    }
-
-    // 下載並自動記憶本次設定（上一動）
-    function downloadJPG() {
-        // 記憶使用者當下的完美選擇 (供下次點擊「套用先前」提取)
+    // --- 核心重構：多圖多核心自動流式匯出 ---
+    async function downloadJPG() {
         localStorage.setItem('wm_prev_position', currentPosition);
         localStorage.setItem('wm_prev_size', watermarkSizeInput.value);
-        
-        const dataURL = mainCanvas.toDataURL('image/jpeg', 0.9);
-        const link = document.createElement('a');
-        link.download = `watermark_${currentPosition}_72dpi.jpg`;
-        link.href = dataURL;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        
-        // 更新歷史按鈕的可點擊狀態
         updateHistoryButtonState();
+
+        // 全面鎖定 UI 控制項，避免多圖導出過程中被二次點擊引發異常
+        btnDownload.disabled = true;
+        btnApplyHistory.disabled = true;
+        watermarkSizeInput.disabled = true;
+
+        // 在瀏覽器記憶體中動態生成高速 Worker 畫布，不影響畫面主預覽渲染
+        const workerCanvas = document.createElement('canvas');
+        const workerCtx = workerCanvas.getContext('2d');
+
+        for (let i = 0; i < mainFilesList.length; i++) {
+            const file = mainFilesList[i];
+            
+            // 將進度即時寫入第 4 欄的控制面板標題
+            statusTitle.textContent = `匯出中 ${i+1}/${mainFilesList.length}`;
+            statusTitle.style.color = 'var(--warning-color)';
+
+            await new Promise((resolve) => {
+                const img = new Image();
+                img.onload = function() {
+                    // 背景高速繪製
+                    drawMainInstance(img, workerCanvas, workerCtx);
+                    
+                    // 多圖直接串流匯出下載
+                    const dataURL = workerCanvas.toDataURL('image/jpeg', 0.9);
+                    const link = document.createElement('a');
+                    const originalName = file.name.substring(0, file.name.lastIndexOf('.')) || file.name;
+                    link.download = `${originalName}_watermark.jpg`;
+                    link.href = dataURL;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    
+                    resolve();
+                };
+                img.src = URL.createObjectURL(file);
+            });
+            
+            // 每次處理完微休眠 150ms，讓瀏覽器 GC (記憶體垃圾回收機制) 有時間釋放大型圖片資源，防止當機
+            await new Promise(r => setTimeout(r, 150));
+        }
+
+        // 還原 UI 控制狀態
+        statusTitle.textContent = "4. 水印調整";
+        statusTitle.style.color = 'var(--text-dark)';
+        btnDownload.disabled = false;
+        watermarkSizeInput.disabled = false;
+        updateHistoryButtonState();
+        
+        alert(`🎉 匯出完成！已成功將 ${mainFilesList.length} 張圖片全部套用版型並下載完畢！`);
     }
+
+    btnDownload.addEventListener('click', downloadJPG);
 </script>
 
 </body>
