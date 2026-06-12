@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>DPI Studio Dark</title>
+
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/piexifjs"></script>
+
+<style>
+
+/* =========================
+   DARK DESIGN SYSTEM
+========================= */
+
+:root{
+--bg:#0b0f17;
+--panel:#111827;
+--card:#0f172a;
+--muted:#94a3b8;
+--text:#e5e7eb;
+--border:rgba(148,163,184,0.15);
+--accent:#3b82f6;
+--accent-hover:#2563eb;
+}
+
+/* =========================
+   BASE
+========================= */
+
+body{
+margin:0;
+background:radial-gradient(circle at top,#111827 0%,#0b0f17 55%);
+font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans TC";
+color:var(--text);
+display:flex;
+justify-content:center;
+padding:40px;
+}
+
+.container{
+width:100%;
+max-width:1000px;
+}
+
+/* =========================
+   HEADER
+========================= */
+
+.header{
+margin-bottom:18px;
+}
+
+h1{
+font-size:20px;
+font-weight:500;
+margin:0;
+letter-spacing:0.5px;
+}
+
+.subtitle{
+font-size:12px;
+color:var(--muted);
+margin-top:6px;
+}
+
+/* =========================
+   LAYOUT
+========================= */
+
+.layout{
+display:grid;
+grid-template-columns:340px 1fr;
+gap:18px;
+}
+
+/* =========================
+   PANEL
+========================= */
+
+.panel{
+background:linear-gradient(180deg,#111827,#0f172a);
+border:1px solid var(--border);
+border-radius:16px;
+padding:16px;
+box-shadow:
+0 10px 30px rgba(0,0,0,0.4),
+inset 0 1px 0 rgba(255,255,255,0.03);
+}
+
+/* =========================
+   INPUTS
+========================= */
+
+input,select{
+width:100%;
+padding:11px;
+margin-top:10px;
+border-radius:10px;
+border:1px solid var(--border);
+background:#0b1220;
+color:var(--text);
+font-size:13px;
+outline:none;
+transition:0.2s;
+}
+
+input:focus,select:focus{
+border-color:var(--accent);
+box-shadow:0 0 0 3px rgba(59,130,246,0.15);
+}
+
+/* =========================
+   BUTTON
+========================= */
+
+.btn{
+width:100%;
+display:flex;
+align-items:center;
+justify-content:center;
+gap:8px;
+margin-top:12px;
+padding:12px;
+border-radius:12px;
+border:1px solid rgba(59,130,246,0.25);
+background:linear-gradient(180deg,#3b82f6,#2563eb);
+color:white;
+font-weight:500;
+cursor:pointer;
+transition:0.2s;
+}
+
+.btn:hover{
+transform:translateY(-1px);
+box-shadow:0 10px 20px rgba(59,130,246,0.15);
+}
+
+/* =========================
+   DROPZONE
+========================= */
+
+.dropzone{
+border:1px dashed var(--border);
+border-radius:14px;
+padding:16px;
+text-align:center;
+background:rgba(255,255,255,0.02);
+cursor:pointer;
+margin-top:10px;
+transition:0.2s;
+}
+
+.dropzone:hover{
+border-color:var(--accent);
+background:rgba(59,130,246,0.05);
+}
+
+/* =========================
+   PREVIEW
+========================= */
+
+.preview{
+background:rgba(255,255,255,0.02);
+border:1px solid var(--border);
+border-radius:16px;
+padding:14px;
+min-height:420px;
+backdrop-filter: blur(8px);
+}
+
+.grid{
+display:grid;
+grid-template-columns:repeat(auto-fill,minmax(92px,1fr));
+gap:10px;
+}
+
+.grid img{
+width:100%;
+height:92px;
+object-fit:cover;
+border-radius:12px;
+border:1px solid rgba(148,163,184,0.15);
+}
+
+/* =========================
+   STATUS
+========================= */
+
+.status{
+margin-top:10px;
+font-size:12px;
+color:var(--muted);
+}
+
+/* =========================
+   RWD
+========================= */
+
+@media(max-width:860px){
+.layout{
+grid-template-columns:1fr;
+}
+}
+
+</style>
+</head>
+
+<body>
+
+<div class="container">
+
+<div class="header">
+<h1>DPI Studio</h1>
+<div class="subtitle">Modern Dark Print Workflow System</div>
+</div>
+
+<div class="layout">
+
+<!-- CONTROL -->
+<div class="panel">
+
+<div style="font-size:12px;color:var(--muted);margin-top:4px;">
+上傳圖片
+</div>
+
+<input type="file" id="files" multiple>
+
+<div class="dropzone" onclick="document.getElementById('files').click()">
+拖曳或點擊上傳
+</div>
+
+<div style="font-size:12px;color:var(--muted);margin-top:14px;">
+DPI 設定
+</div>
+
+<input id="originDpi" type="number" placeholder="原始 DPI（預設 96）">
+
+<select id="dpi">
+<option value="300">300 DPI</option>
+<option value="150">150 DPI</option>
+<option value="72">72 DPI</option>
+</select>
+
+<button class="btn" onclick="run()">輸出檔案</button>
+
+<div class="status" id="status"></div>
+
+</div>
+
+<!-- PREVIEW -->
+<div class="preview">
+<div class="grid" id="preview"></div>
+</div>
+
+</div>
+
+</div>
+
+<script>
+
+let files = [];
+
+document.getElementById("files").onchange = e=>{
+files = [...e.target.files];
+preview.innerHTML = "";
+
+files.forEach(f=>{
+let img=document.createElement("img");
+img.src=URL.createObjectURL(f);
+preview.appendChild(img);
+});
+};
+
+function loadImage(file){
+return new Promise(res=>{
+let img=new Image();
+img.onload=()=>res(img);
+img.src=URL.createObjectURL(file);
+});
+}
+
+/* =========================
+   DPI CORE
+========================= */
+
+function resize(img, originDpi, targetDpi){
+
+if(!originDpi) originDpi = 96;
+
+const inchW = img.width / originDpi;
+const inchH = img.height / originDpi;
+
+const newW = Math.round(inchW * targetDpi);
+const newH = Math.round(inchH * targetDpi);
+
+const canvas=document.createElement("canvas");
+canvas.width=newW;
+canvas.height=newH;
+
+const ctx=canvas.getContext("2d");
+
+ctx.imageSmoothingEnabled=true;
+ctx.imageSmoothingQuality="high";
+
+ctx.drawImage(img,0,0,newW,newH);
+
+return canvas;
+}
+
+/* =========================
+   EXIF DPI
+========================= */
+
+function applyDPI(canvas,dpi){
+
+let exif={"0th":{}};
+
+exif["0th"][piexif.ImageIFD.XResolution]=[dpi,1];
+exif["0th"][piexif.ImageIFD.YResolution]=[dpi,1];
+exif["0th"][piexif.ImageIFD.ResolutionUnit]=2;
+
+let exifBytes=piexif.dump(exif);
+
+let base64=canvas.toDataURL("image/jpeg",0.95);
+
+return piexif.insert(exifBytes,base64);
+}
+
+/* =========================
+   EXPORT
+========================= */
+
+function download(data,name){
+let a=document.createElement("a");
+a.href=data;
+a.download=name;
+a.click();
+}
+
+async function run(){
+
+if(files.length===0){
+status.innerText="未選擇圖片";
+return;
+}
+
+const originDpi=Number(document.getElementById("originDpi").value);
+const targetDpi=Number(document.getElementById("dpi").value);
+
+status.innerText="處理中...";
+
+let outputs=[];
+
+for(let f of files){
+
+let img=await loadImage(f);
+let canvas=resize(img,originDpi,targetDpi);
+let finalImg=applyDPI(canvas,targetDpi);
+
+outputs.push({file:f,data:finalImg});
+}
+
+if(outputs.length===1){
+
+let o=outputs[0];
+
+download(
+o.data,
+o.file.name.replace(/\..+$/,"")+"_"+targetDpi+"dpi.jpg"
+);
+
+status.innerText="完成輸出";
+
+}else{
+
+let zip=new JSZip();
+
+for(let o of outputs){
+
+let name=o.file.name.replace(/\..+$/,"")+"_"+targetDpi+"dpi.jpg";
+
+const blob=await(await fetch(o.data)).blob();
+const buffer=await blob.arrayBuffer();
+
+zip.file(name,buffer);
+}
+
+const content=await zip.generateAsync({type:"blob"});
+
+let a=document.createElement("a");
+a.href=URL.createObjectURL(content);
+a.download="dpi_batch.zip";
+a.click();
+
+status.innerText="完成 ZIP 輸出";
+
+}
+
+}
+
+</script>
+
+</body>
+</html>
